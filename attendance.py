@@ -1,24 +1,22 @@
 import pandas as pd
 import openpyxl
 import streamlit as st  
-from datetime import datetime, timedelta, time
+from datetime import datetime, time, timedelta
+from streamlit_calendar import calendar
 
 st.title("Attendance Analysis")
 
+# --- Load Excel Data ---
 df = pd.read_excel(r"S:\Reception\Attendance\Punch-Clock-Attendance.xlsm", engine="openpyxl")
 
-# print(df)
+# --- Cutoff time for late punches ---
+cutoff_time = time(7, 31, 0)
 
-# streamlit run attendance.py
-
-#setting cut off punch in time
-cutoff_time = time(7,31,0)
-
-
+# --- Format Date and Time columns ---
 df["Date"] = pd.to_datetime(df["Date"]).dt.date
-df["Time"] = pd.to_datetime(df["Time"], format="%H:%M:%S").dt.time
+df["Time"] = pd.to_datetime(df["Time"], format="%H:%M:%S", errors="coerce").dt.time
 
-# --- User selects date range ---
+# --- Sidebar Filters ---
 st.sidebar.header("Filters")
 start_date = st.sidebar.date_input("Start date", datetime.today().date())
 end_date = st.sidebar.date_input("End date", datetime.today().date())
@@ -26,76 +24,65 @@ employees = df["Name"].unique()
 selected_employees = st.sidebar.multiselect(
     "Select Employee(s)",
     options=employees,
-    default=list(employees)  
+    default=list(employees)
 )
 
-# Filter by date range and employee
+# --- Apply Filters ---
 filtered_df = df[
     (df["Date"] >= start_date) &
     (df["Date"] <= end_date) &
     (df["Name"].isin(selected_employees))
 ]
 
+# --- First punch logic for late ---
+first_punch_df = filtered_df.sort_values(by=["Date", "Time"]).groupby(["Name", "Date"], as_index=False).first()
+first_punch_idx = filtered_df.sort_values(by=["Name", "Date", "Time"]).groupby(["Name", "Date"])["Time"].idxmin()
 
-#Highlight Late Days Orange-----------------------------------------------
-sorted_df = filtered_df.sort_values(by=["Name", "Date", "Time"])
-
-# Group by employee + date, get only first punch row indices
-first_punch_idx = sorted_df.groupby(["Name", "Date"])["Time"].idxmin()
-
-def highlight_first_late_consistent(row):
-    # Only highlight if this row is the first punch of the day AND it's late
+# --- Function to highlight late first punches only ---
+def highlight_time(row):
     if row.name in first_punch_idx.values and row["Time"] > cutoff_time:
         return ['background-color: orange' if col == "Time" else '' for col in row.index]
     else:
         return ['' for _ in row.index]
 
-first_punch_df = (
-    filtered_df.sort_values(by=["Date", "Time"])  # make sure times are ascending
-    .groupby(["Name", "Date"], as_index=False)   # group by employee + date
-    .first()                                     # take first row in each group
-)
-
-
-# Display filtered data table-------------------------------------------------
+# --- Display Punch Log Table with late highlights ---
 st.subheader(f"Showing attendance from {start_date} to {end_date}")
-st.dataframe(filtered_df.style.apply(highlight_first_late_consistent, axis=1))
+st.dataframe(filtered_df.style.apply(highlight_time, axis=1))
 
+# --- Build Calendar Events ---
+calendar_events = []
 
-st.subheader("Late Punch Summary")
+# Add late punches
 for employee in selected_employees:
-    emp_data = first_punch_df[first_punch_df["Name"] == employee]
-    num_late = sum(emp_data["Time"] > cutoff_time)
-    st.write(f"**{employee}:** {num_late} late punch{'s' if num_late != 1 else ''}")
+    emp_first = first_punch_df[first_punch_df["Name"] == employee]
+    late_days = emp_first[emp_first["Time"] > cutoff_time]["Date"]
+    for day in late_days:
+        calendar_events.append({
+            "start": str(day),
+            "end": str(day),
+            "title": f"{employee}: Late",
+            "color" : "orange"
+        })
 
-st.subheader("Punch Error Summary")
-
+# Add absent days based on weekday with no punches
 for employee in selected_employees:
     emp_data = filtered_df[filtered_df["Name"] == employee]
+    all_days = pd.date_range(start=start_date, end=end_date).date
+    weekdays = [d for d in all_days if d.weekday() < 5]  # 0=Mon, ..., 4=Fri
     
-    # Group by Date and count IN and OUT
-    daily_counts = emp_data.groupby("Date")["Action"].value_counts().unstack(fill_value=0)
+    # Find days with no punches
+    punched_days = emp_data["Date"].unique()
+    absent_days = [d for d in weekdays if d not in punched_days]
     
-    # Ensure both 'IN' and 'OUT' columns exist
-    if "IN" not in daily_counts.columns:
-        daily_counts["IN"] = 0
-    if "OUT" not in daily_counts.columns:
-        daily_counts["OUT"] = 0
-    
-    # Find dates where counts are not exactly 2
-    mispunched_dates = daily_counts[
-        (daily_counts["IN"] != 2) | (daily_counts["OUT"] != 2)
-    ].index.tolist()
-    
-    if mispunched_dates:
-        mispunched_str = ", ".join([str(d) for d in mispunched_dates])
-        st.write(f"**{employee}:** Punch Error on {mispunched_str}")
-    else:
-        st.write(f"**{employee}:** No punch errors")
+    for day in absent_days:
+        calendar_events.append({
+            "start": str(day),
+            "end": str(day),
+            "title": f"{employee}: Absent",
+            "color": "red"
+        })
 
+# --- Display Calendar ---
+st.subheader("Late & Absent Calendar")
+calendar(events=calendar_events)
 
-
-# Optional: Export filtered data to Excel
-if st.button("Export to Excel"):
-    filtered_df.to_excel("filtered_attendance.xlsx", index=False)
-    st.success("Filtered data exported to filtered_attendance.xlsx")
