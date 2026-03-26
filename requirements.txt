@@ -1,13 +1,5 @@
-<<<<<<< HEAD
 pandas
 openpyxl
 streamlit
 streamlit-calendar
 requests
-=======
-pandas
-openpyxl
-streamlit
-streamlit-calendar
-requests
->>>>>>> 112ee2bf3a1d7b1ecd7112604c12aff925e68f76
