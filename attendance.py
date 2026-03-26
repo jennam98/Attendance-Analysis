@@ -4,29 +4,20 @@ import streamlit as st
 from datetime import datetime, time, timedelta
 from streamlit_calendar import calendar
 import os
-import requests
-from io import BytesIO
 
+# Network drive file
+file_path = r"S:\Reception\Attendance\Punch-Clock-Attendance.xlsm"
 
-file_path = "https://weldexperts-my.sharepoint.com/:x:/g/personal/reception_weldexperts_ca/IQDIifpuW4GRSapra5DshmwBAdIVkzSGdMBvmBkLwfAdpAA?download=1"
+# Get last modified timestamp
+last_modified = os.path.getmtime(file_path)
+last_refreshed = datetime.fromtimestamp(last_modified)
+st.caption(f"Last refreshed: {last_refreshed.strftime('%Y-%m-%d %I:%M:%S %p')}")
 
-@st.cache_data(ttl=300)  # refresh every 5 mins
-def load_data():
-    response = requests.get(file_path)
-    response.raise_for_status()
-    return pd.read_excel(BytesIO(response.content), engine="openpyxl")
+# Load Excel data
+df = pd.read_excel(file_path, engine="openpyxl")
 
-df = load_data()
-# --- Load Excel Data ---
 
 st.set_page_config(layout="wide")
-
-# --- Last refreshed timestamp ---
-# last_modified = os.path.getmtime(file_path)
-# last_refreshed = datetime.fromtimestamp(last_modified)
-
-last_refreshed = datetime.now()
-st.caption(f"Last refreshed: {last_refreshed.strftime('%Y-%m-%d %I:%M:%S %p')}")
 
 st.title("Attendance Analysis")
 

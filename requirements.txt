@@ -1,5 +1,0 @@
-pandas
-openpyxl
-streamlit
-streamlit-calendar
-requests
