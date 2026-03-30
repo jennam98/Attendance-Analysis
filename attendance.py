@@ -4,20 +4,29 @@ import streamlit as st
 from datetime import datetime, time, timedelta
 from streamlit_calendar import calendar
 import os
-
-# Network drive file
-file_path = r"S:\Reception\Attendance\Punch-Clock-Attendance.xlsm"
-
-# Get last modified timestamp
-last_modified = os.path.getmtime(file_path)
-last_refreshed = datetime.fromtimestamp(last_modified)
-st.caption(f"Last refreshed: {last_refreshed.strftime('%Y-%m-%d %I:%M:%S %p')}")
-
-# Load Excel data
-df = pd.read_excel(file_path, engine="openpyxl")
-
+import requests
+from io import BytesIO
 
 st.set_page_config(layout="wide")
+
+file_path = "https://weldexperts-my.sharepoint.com/:x:/g/personal/reception_weldexperts_ca/IQDIifpuW4GRSapra5DshmwBAdIVkzSGdMBvmBkLwfAdpAA?download=1"
+
+@st.cache_data(ttl=300)
+def load_data():
+    try:
+        response = requests.get(file_path)
+        response.raise_for_status()
+        return pd.read_excel(BytesIO(response.content), engine="openpyxl")
+    except Exception as e:
+        st.error(f"Error loading Excel file: {e}")
+        return pd.DataFrame()
+
+df = load_data()
+
+if df.empty:
+    st.stop()
+
+
 
 st.title("Attendance Analysis")
 
