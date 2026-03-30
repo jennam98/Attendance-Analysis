@@ -28,6 +28,7 @@ def load_data():
 
 df = load_data()
 
+
 if df.empty:
     st.stop()
 
@@ -96,11 +97,10 @@ col1, col2 = st.columns([3, 1], gap="large")
 
 # --- Left: Attendance Table ---
 with col1:
-   
     st.subheader(f"{start_date} -> {end_date}")
-     st.dataframe(filtered_df.style.apply(highlight_time, axis=1), use_container_width=True)
+    st.dataframe(filtered_df.style.apply(highlight_time, axis=1), use_container_width=True)
     
-# =========================
+# =====================
 # 📅 CALENDAR
 # =========================
 
