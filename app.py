@@ -12,6 +12,10 @@ from io import BytesIO
 
 file_path = "https://weldexperts-my.sharepoint.com/:x:/g/personal/reception_weldexperts_ca/IQDIifpuW4GRSapra5DshmwBAdIVkzSGdMBvmBkLwfAdpAA?download=1"
 
+
+st.set_page_config(layout="wide")
+
+
 @st.cache_data(ttl=300)
 def load_data():
     try:
@@ -27,7 +31,6 @@ df = load_data()
 if df.empty:
     st.stop()
 
-st.set_page_config(layout="wide")
 
 st.title("Attendance Analysis")
 
