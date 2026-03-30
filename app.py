@@ -8,7 +8,7 @@ from streamlit_calendar import calendar
 import requests
 from io import BytesIO
 
-st.set_page_config(layout="wide")
+
 
 file_path = "https://weldexperts-my.sharepoint.com/:x:/g/personal/reception_weldexperts_ca/IQDIifpuW4GRSapra5DshmwBAdIVkzSGdMBvmBkLwfAdpAA?download=1"
 
@@ -27,7 +27,7 @@ df = load_data()
 if df.empty:
     st.stop()
 
-
+st.set_page_config(layout="wide")
 
 st.title("Attendance Analysis")
 
