@@ -1,9 +1,13 @@
+import sys
+import os
+# Add the patch to sys.modules so Streamlit finds it
+import imghdr_patch
+sys.modules['imghdr'] = imghdr_patch.imghdr
 import pandas as pd
 import openpyxl 
 import streamlit as st  
 from datetime import datetime, time, timedelta
 from streamlit_calendar import calendar
-import os
 import requests
 from io import BytesIO
 
