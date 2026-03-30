@@ -98,10 +98,7 @@ col1, col2 = st.columns([3, 1], gap="large")
 with col1:
    
     st.subheader(f"{start_date} -> {end_date}")
-
-
-    st.dataframe(filtered_df.style.apply(highlight_time, axis=1))
-    
+     st.dataframe(filtered_df.style.apply(highlight_time, axis=1), use_container_width=True)
     
 # =========================
 # 📅 CALENDAR
