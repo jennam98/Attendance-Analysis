@@ -345,7 +345,10 @@ with col2:
 
         
 
-if st.button("Generate Excel Report", key="report_btn"):
+st.subheader("Export Report")
+
+# Step 1: Generate report and store it
+if st.button("Generate Excel Report", key="gen_report"):
 
     conn = sqlite3.connect("notes.db")
 
@@ -365,9 +368,16 @@ if st.button("Generate Excel Report", key="report_btn"):
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         report_df.to_excel(writer, index=False, sheet_name="Attendance Report")
 
+    # ✅ STORE FILE IN SESSION
+    st.session_state["report_file"] = buffer.getvalue()
+
+
+# Step 2: Show download button IF report exists
+if "report_file" in st.session_state:
+
     st.download_button(
         label="⬇ Download Excel File",
-        data=buffer.getvalue(),
+        data=st.session_state["report_file"],
         file_name="attendance_report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
