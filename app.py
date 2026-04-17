@@ -7,6 +7,20 @@ from datetime import datetime, time, timedelta
 from streamlit_calendar import calendar
 import requests
 from io import BytesIO
+import json
+
+
+NOTES_FILE = "notes.json"
+
+def load_notes():
+    if not os.path.exists(NOTES_FILE):
+        return []
+    with open(NOTES_FILE, "r") as f:
+        return json.load(f)
+
+def save_notes(data):
+    with open(NOTES_FILE, "w") as f:
+        json.dump(data, f, indent=4)
 
 
 
@@ -142,11 +156,14 @@ with col1:
     st.subheader("Late & Absent Calendar")
     calendar_response = calendar(events=calendar_events)
 
+  
+
 # =========================
 # 📝 NOTES SYSTEM
 # =========================
 with col1:
     if calendar_response and calendar_response.get("eventClick"):
+
         event = calendar_response["eventClick"]["event"]
 
         title = event["title"]
@@ -154,50 +171,37 @@ with col1:
 
         name, event_type = title.split(": ")
 
-        st.subheader(f"Add/View Note for {name} ({event_type}) on {date}")
+        st.subheader("Notes")
 
-        # Load notes safely
-        if not os.path.exists("notes.csv") or os.stat("notes.csv").st_size == 0:
-            notes_df = pd.DataFrame(columns=["Name", "Date", "Type", "Note"])
-        else:
-            notes_df = pd.read_csv("notes.csv")
+        notes_data = load_notes()
 
-        # Existing note
-        existing_note = notes_df[
-            (notes_df["Name"] == name) &
-            (notes_df["Date"] == date) &
-            (notes_df["Type"] == event_type)
-        ]
+        existing_note = next(
+            (n for n in notes_data
+             if n["Name"] == name and n["Date"] == date and n["Type"] == event_type),
+            None
+        )
 
-        default_text = existing_note.iloc[0]["Note"] if not existing_note.empty else ""
+        default_text = existing_note["Note"] if existing_note else ""
 
         note = st.text_input("Enter note", value=default_text)
 
         if st.button("Save Note"):
-            notes_df = notes_df[
-                ~(
-                    (notes_df["Name"] == name) &
-                    (notes_df["Date"] == date) &
-                    (notes_df["Type"] == event_type)
-                )
+
+            notes_data = [
+                n for n in notes_data
+                if not (n["Name"] == name and n["Date"] == date and n["Type"] == event_type)
             ]
 
-            new_row = pd.DataFrame([{
+            notes_data.append({
                 "Name": name,
                 "Date": date,
                 "Type": event_type,
                 "Note": note
-            }])
+            })
 
-            notes_df = pd.concat([notes_df, new_row], ignore_index=True)
-            notes_df.to_csv("notes.csv", index=False)
+            save_notes(notes_data)
 
-            st.success("Note saved!")
-
-
-
-            
-
+            st.success("Note saved locally!")
 
     # --- Right: Summary ---
 with col2:
