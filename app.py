@@ -157,11 +157,12 @@ with col1:
     st.subheader(f"{start_date} -> {end_date}")
     st.dataframe(filtered_df.style.apply(highlight_time, axis=1), use_container_width=True)
     
+
 # =====================
 # 📅 CALENDAR
-# =========================
-
+# =====================
 with col1:
+
     calendar_events = []
 
     # Late events
@@ -199,36 +200,46 @@ with col1:
     st.subheader("Late & Absent Calendar")
     calendar_response = calendar(events=calendar_events)
 
-  
-
-# =========================
-# 📝 NOTES SYSTEM
-# =========================
-with col1:
-
+    # =========================
+    # 🧠 STORE CLICKED EVENT (FIX)
+    # =========================
     if calendar_response and calendar_response.get("eventClick"):
 
         event = calendar_response["eventClick"]["event"]
 
-        title = event["title"]
-        date = event["start"][:10]
+        st.session_state["selected_name"] = event["title"].split(": ")[0]
+        st.session_state["selected_type"] = event["title"].split(": ")[1]
+        st.session_state["selected_date"] = event["start"][:10]
 
-        name, event_type = title.split(": ")
 
-        st.subheader(f"Notes for {name} ({event_type}) on {date}")
+# =========================
+# 📝 NOTES SYSTEM (FIXED)
+# =========================
+with col1:
 
-        # load existing note
+    st.subheader("Notes")
+
+    if "selected_name" in st.session_state:
+
+        name = st.session_state["selected_name"]
+        event_type = st.session_state["selected_type"]
+        date = st.session_state["selected_date"]
+
+        st.write(f"Editing: **{name}** ({event_type}) on {date}")
+
         default_text = get_note(name, date, event_type)
 
-        note = st.text_input("Enter note", value=default_text)
+        note = st.text_input(
+            "Enter note",
+            value=default_text,
+            key="note_input"
+        )
 
         if st.button("Save Note"):
 
             save_note(name, date, event_type, note)
 
             st.success("Note saved!")
-
-
 
 # --- Right: Summary ---
 with col2:
