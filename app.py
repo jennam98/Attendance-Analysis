@@ -8,6 +8,7 @@ from streamlit_calendar import calendar
 import requests
 from io import BytesIO
 import sqlite3
+import io
 
 
 # Create database connection
@@ -65,6 +66,77 @@ def save_note(name, date, event_type, note):
 
     conn.commit()
     conn.close()
+
+
+    # *****Build report function that combines attendance data with notes*****
+def build_report(filtered_df, first_punch_df, cutoff_time, start_date, end_date, conn):
+
+    # Load notes from SQLite
+    notes_rows = conn.execute(
+        "SELECT name, date, type, note FROM notes"
+    ).fetchall()
+
+    notes_data = [
+        {"Name": n[0], "Date": n[1], "Type": n[2], "Note": n[3]}
+        for n in notes_rows
+    ]
+
+    report_rows = []
+
+    all_days = pd.date_range(start=start_date, end=end_date).date
+    weekdays = [d for d in all_days if d.weekday() < 5]
+
+    for employee in filtered_df["Name"].unique():
+
+        emp_first = first_punch_df[first_punch_df["Name"] == employee]
+        emp_data = filtered_df[filtered_df["Name"] == employee]
+
+        punched_days = emp_data["Date"].unique()
+
+        for day in weekdays:
+
+            status = "Present"
+            note_text = ""
+
+            # Check Late
+            late_row = emp_first[
+                (emp_first["Date"] == day) &
+                (emp_first["Time"] > cutoff_time)
+            ]
+
+            if not late_row.empty:
+                status = "Late"
+
+            # Check Absent
+            elif day not in punched_days:
+                status = "Absent"
+
+            # Get matching note
+            note_match = next(
+                (n["Note"] for n in notes_data
+                 if n["Name"] == employee
+                 and n["Date"] == str(day)
+                 and n["Type"] == status),
+                ""
+            )
+
+            report_rows.append({
+                "Date": str(day),
+                "Employee": employee,
+                "Status": status,
+                "Note": note_match
+            })
+
+    report_df = pd.DataFrame(report_rows)
+
+    # Sort nicely
+    report_df = report_df.sort_values(by=["Date", "Employee"])
+
+    return report_df
+
+ 
+
+# EXCEL FILE URL (DIRECT DOWNLOAD LINK)
 
 file_path = "https://weldexperts-my.sharepoint.com/:x:/g/personal/reception_weldexperts_ca/IQDIifpuW4GRSapra5DshmwBAdIVkzSGdMBvmBkLwfAdpAA?download=1"
 
@@ -270,3 +342,32 @@ with col2:
             🔴 Absent: {absent_count}
         </div>
         """, unsafe_allow_html=True)
+
+        
+
+if st.button("Generate Excel Report", key="report_btn"):
+
+    conn = sqlite3.connect("notes.db")
+
+    report_df = build_report(
+        filtered_df,
+        first_punch_df,
+        cutoff_time,
+        start_date,
+        end_date,
+        conn
+    )
+
+    conn.close()
+
+    buffer = io.BytesIO()
+
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        report_df.to_excel(writer, index=False, sheet_name="Attendance Report")
+
+    st.download_button(
+        label="⬇ Download Excel File",
+        data=buffer.getvalue(),
+        file_name="attendance_report.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
