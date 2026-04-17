@@ -7,22 +7,64 @@ from datetime import datetime, time, timedelta
 from streamlit_calendar import calendar
 import requests
 from io import BytesIO
-import json
+import sqlite3
 
 
-NOTES_FILE = "notes.json"
+# Create database connection
 
-def load_notes():
-    if not os.path.exists(NOTES_FILE):
-        return []
-    with open(NOTES_FILE, "r") as f:
-        return json.load(f)
+def init_db():
+    conn = sqlite3.connect("notes.db")
+    c = conn.cursor()
 
-def save_notes(data):
-    with open(NOTES_FILE, "w") as f:
-        json.dump(data, f, indent=4)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            date TEXT,
+            type TEXT,
+            note TEXT
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# Functions to load and save notes
+def get_note(name, date, event_type):
+    conn = sqlite3.connect("notes.db")
+    c = conn.cursor()
+
+    c.execute("""
+        SELECT note FROM notes
+        WHERE name=? AND date=? AND type=?
+    """, (name, date, event_type))
+
+    row = c.fetchone()
+    conn.close()
+
+    return row[0] if row else ""
 
 
+def save_note(name, date, event_type, note):
+    conn = sqlite3.connect("notes.db")
+    c = conn.cursor()
+
+    # delete old note if exists
+    c.execute("""
+        DELETE FROM notes
+        WHERE name=? AND date=? AND type=?
+    """, (name, date, event_type))
+
+    # insert new note
+    c.execute("""
+        INSERT INTO notes (name, date, type, note)
+        VALUES (?, ?, ?, ?)
+    """, (name, date, event_type, note))
+
+    conn.commit()
+    conn.close()
 
 file_path = "https://weldexperts-my.sharepoint.com/:x:/g/personal/reception_weldexperts_ca/IQDIifpuW4GRSapra5DshmwBAdIVkzSGdMBvmBkLwfAdpAA?download=1"
 
@@ -45,6 +87,7 @@ df = load_data()
 
 if df.empty:
     st.stop()
+
 
 
 st.title("Attendance Analysis")
@@ -162,6 +205,7 @@ with col1:
 # 📝 NOTES SYSTEM
 # =========================
 with col1:
+
     if calendar_response and calendar_response.get("eventClick"):
 
         event = calendar_response["eventClick"]["event"]
@@ -171,39 +215,22 @@ with col1:
 
         name, event_type = title.split(": ")
 
-        st.subheader("Notes")
+        st.subheader(f"Notes for {name} ({event_type}) on {date}")
 
-        notes_data = load_notes()
-
-        existing_note = next(
-            (n for n in notes_data
-             if n["Name"] == name and n["Date"] == date and n["Type"] == event_type),
-            None
-        )
-
-        default_text = existing_note["Note"] if existing_note else ""
+        # load existing note
+        default_text = get_note(name, date, event_type)
 
         note = st.text_input("Enter note", value=default_text)
 
         if st.button("Save Note"):
 
-            notes_data = [
-                n for n in notes_data
-                if not (n["Name"] == name and n["Date"] == date and n["Type"] == event_type)
-            ]
+            save_note(name, date, event_type, note)
 
-            notes_data.append({
-                "Name": name,
-                "Date": date,
-                "Type": event_type,
-                "Note": note
-            })
+            st.success("Note saved!")
 
-            save_notes(notes_data)
 
-            st.success("Note saved locally!")
 
-    # --- Right: Summary ---
+# --- Right: Summary ---
 with col2:
     st.subheader("Summary")
 
