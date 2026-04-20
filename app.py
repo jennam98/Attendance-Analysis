@@ -336,6 +336,7 @@ with col2:
             margin-bottom:10px;
             border-radius:10px;
             background-color:#f5f5f5;
+            color: black;   
         ">
             <b>{employee}</b><br>
             🟠 Late: {late_count}<br>
